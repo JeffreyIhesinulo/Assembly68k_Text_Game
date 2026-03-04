@@ -1,0 +1,184 @@
+flowchart TD
+    START([START]) --> INIT
+
+    INIT["INIT
+    BRAVERY=10
+    DANGER_TICK=0
+    KILLS=0"] --> MAIN_MENU
+
+    MAIN_MENU["MAIN MENU
+    1. Choose Hero
+    2. Choose Potions 1..5
+    3. Choose Weapon
+    4. Choose Difficulty"] --> GAMEPLAY
+
+    MAIN_MENU -. "Archer: HP=70, 10 arrows
+    Knight: HP=80, no resource
+    Wizard: HP=70, 100 mana, Dragon -50%" .-> MAIN_MENU
+
+    GAMEPLAY["GAMEPLAY LOOP
+    show STATUS LINE"] --> BRV_CHECK
+
+    BRV_CHECK{BRAVERY = 0?} -->|YES| GAME_OVER
+    BRV_CHECK -->|NO| LOC_CHECK
+
+    LOC_CHECK{LOCATION >= 12?} -->|YES| VICTORY
+    LOC_CHECK -->|NO| ACTION
+
+    ACTION{ACTION?
+    1 / 2 / 3 / 4} -->|1 = Move| MOVE
+    ACTION -->|2 = Rest| REST
+    ACTION -->|3 = Bravery Potion| POT
+    ACTION -->|4 = Mana Potion| MANAPOT
+
+    POT["BRAVERY POTION
+    BRAVERY +10
+    pot_count--"] --> GAMEPLAY
+
+    MANAPOT["MANA POTION
+    MANA +20
+    mana_pot--"] --> GAMEPLAY
+
+    REST["REST
+    BRAVERY +5
+    REST_COUNTER++"] --> REST_CHECK
+
+    REST_CHECK{REST_COUNTER = 3?} -->|NO| GAMEPLAY
+    REST_CHECK -->|YES| SPAWN["CLR.B REST_COUNTER
+    spawn monster"]
+    SPAWN --> PICK_MONSTER
+
+    MOVE["MOVE FORWARD
+    LOCATION++"] --> DANGER
+
+    DANGER{DANGER_CHECK
+    Easy: every 5 steps
+    Normal: every 4 steps
+    Hard: every 3 steps} -->|SAFE| SAFE_STEP
+    DANGER -->|DANGER| PICK_MONSTER
+
+    SAFE_STEP["SAFE STEP
+    BRAVERY +2
+    choose reward:
+    arrows / bravery pot / mana pot"] --> GAMEPLAY
+
+    PICK_MONSTER{"PICK_MONSTER
+    by LOCATION"} -->|"loc 1-3"| SKEL["SKELETON
+    HP=30, DMG=8"]
+    PICK_MONSTER -->|"loc 4-7"| ORC["ORC
+    HP=60, DMG=12"]
+    PICK_MONSTER -->|"loc 8-10"| GIANT["GIANT
+    HP=saved, DMG=15"]
+    PICK_MONSTER -->|"loc 11-12"| DRAGON["DRAGON
+    HP=120, DMG=22"]
+
+    SKEL --> COLLISION
+    ORC --> COLLISION
+    GIANT --> COLLISION
+    DRAGON --> COLLISION
+
+    COLLISION["COLLISION
+    set DMG by difficulty:
+    Easy +0 / Normal +4 / Hard +8
+    show monster HUD"] --> BATTLE_LOOP
+
+    BATTLE_LOOP["BATTLE LOOP"] --> MON_DEAD_CHECK
+
+    MON_DEAD_CHECK{MONSTER HP = 0?} -->|YES| MONSTER_DEAD
+    MON_DEAD_CHECK -->|NO| BATTLE_ACTION
+
+    BATTLE_ACTION{BATTLE ACTION?
+    1 / 2} -->|1 = Fight| WEAPON_CHECK
+    BATTLE_ACTION -->|2 = Run| RUN
+
+    WEAPON_CHECK{weapon type?} -->|Bow| ARROW_CHECK
+    WEAPON_CHECK -->|Staff| MANA_CHECK
+    WEAPON_CHECK -->|Sword| DO_DAMAGE
+
+    ARROW_CHECK{arrows > 0?} -->|YES| USE_ARROW["arrows--
+    DO_DAMAGE"]
+    ARROW_CHECK -->|NO| NO_AMMO
+
+    MANA_CHECK{mana >= 20?} -->|YES| USE_MANA["mana -= 20
+    DO_DAMAGE"]
+    MANA_CHECK -->|NO| NO_AMMO
+
+    NO_AMMO{choice?
+    1 / 2} -->|1 = Punch| BARE_HANDS["BARE HANDS
+    monster HP -5"]
+    NO_AMMO -->|2 = Run| RUN
+
+    USE_ARROW --> DO_DAMAGE
+    USE_MANA --> DO_DAMAGE
+
+    DO_DAMAGE["PLAYER HITS MONSTER
+    monster HP -= PLAYER_DMG
+    32-bit SUB to prevent wrap"] --> MON_HIT_PLAYER
+
+    BARE_HANDS --> MON_HIT_PLAYER
+
+    MON_HIT_PLAYER["MONSTER HITS PLAYER
+    BRAVERY -= MON_DMG
+    Wizard vs Dragon: DMG / 2
+    32-bit SUB to prevent overflow"] --> BRV_ZERO
+
+    BRV_ZERO{BRAVERY = 0?} -->|YES| GAME_OVER
+    BRV_ZERO -->|NO| BATTLE_LOOP
+
+    RUN["RUN
+    BRAVERY -= 8
+    LOCATION--
+    DANGER_TICK = 2"] --> GAMEPLAY
+
+    MONSTER_DEAD["MONSTER DEAD
+    KILLS++
+    BRAVERY +15
+    ROLL_LOOT"] --> LOOT_ROLL
+
+    LOOT_ROLL{LOOT ROLL
+    formula:
+    counter x 3 + loc mod 8} -->|NONE| NO_LOOT["no loot"] --> GAMEPLAY
+    LOOT_ROLL -->|EPIC| EPIC_LOOT
+    LOOT_ROLL -->|LEGENDARY| LEGEND_LOOT
+
+    EPIC_LOOT["EPIC LOOT
+    3 weapons by monster type
+    player picks 0/1/2/3
+    0 = keep current"] --> GAMEPLAY
+
+    LEGEND_LOOT["LEGENDARY LOOT
+    3 weapons by monster type
+    Bow: +5 arrows
+    Sword: +20 bravery
+    Staff: +30 mana
+    0 = keep current"] --> GAMEPLAY
+
+    VICTORY([VICTORY
+    reached location 12]) --> HUD
+    GAME_OVER([GAME OVER
+    bravery = 0]) --> HUD
+
+    HUD["HUD
+    final BRAVERY
+    total KILLS"] --> REPLAY
+
+    REPLAY{REPLAY?
+    0 = quit} -->|YES| MAIN_MENU
+    REPLAY -->|NO = 0| END
+
+    END([END / SIMHALT])
+
+    %% Styles
+    classDef terminal fill:#0d2b0d,stroke:#00ff88,stroke-width:2px,color:#00ff88
+    classDef setup fill:#0a1a2e,stroke:#00e5ff,stroke-width:1.5px,color:#00e5ff
+    classDef decision fill:#1e1600,stroke:#ffb800,stroke-width:1.5px,color:#ffb800
+    classDef combat fill:#1a0a2e,stroke:#a855f7,stroke-width:1.5px,color:#c084fc
+    classDef danger fill:#2e0a0a,stroke:#ff3355,stroke-width:2px,color:#ff6680
+    classDef action fill:#0a1a1a,stroke:#00e5ff,stroke-width:1px,color:#7dd3fc
+
+    class START,END,VICTORY terminal
+    class GAME_OVER danger
+    class INIT,MAIN_MENU,GAMEPLAY,SAFE_STEP,REST,POT,MANAPOT,MOVE,SPAWN setup
+    class BRV_CHECK,LOC_CHECK,ACTION,REST_CHECK,DANGER,PICK_MONSTER,BATTLE_ACTION,WEAPON_CHECK,ARROW_CHECK,MANA_CHECK,NO_AMMO,BRV_ZERO,LOOT_ROLL,REPLAY,MON_DEAD_CHECK decision
+    class COLLISION,BATTLE_LOOP,DO_DAMAGE,BARE_HANDS,MON_HIT_PLAYER,RUN,MONSTER_DEAD,EPIC_LOOT,LEGEND_LOOT combat
+    class SKEL,ORC,GIANT,DRAGON,USE_ARROW,USE_MANA,NO_LOOT,HUD action
